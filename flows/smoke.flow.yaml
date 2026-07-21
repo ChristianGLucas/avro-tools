@@ -11,4 +11,4 @@ edges:
   - from: canon
     to: fp
     adapter:
-      "canonicalForm": schema
+      "canonical_form": schema
