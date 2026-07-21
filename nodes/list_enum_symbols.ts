@@ -1,6 +1,6 @@
 import { AvroSchemaInput, EnumSymbolsResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, mkError } from './avro_helpers';
+import { parseAndValidate, mkError, normalizeTypeName } from './avro_helpers';
 
 /**
  * List the symbols of an Avro enum schema, in declaration order, plus its
@@ -21,7 +21,7 @@ export function listEnumSymbols(ax: AxiomContext, input: AvroSchemaInput): EnumS
   const { raw, type } = parsed;
   if (type.typeName !== 'enum' || !raw || typeof raw !== 'object' || Array.isArray(raw)) {
     result.setValid(false);
-    result.setErrorsList([mkError(`schema is not an enum (top-level type is "${type.typeName}")`)]);
+    result.setErrorsList([mkError(`schema is not an enum (top-level type is "${normalizeTypeName(type.typeName)}")`)]);
     return result;
   }
   const rec = raw as Record<string, unknown>;

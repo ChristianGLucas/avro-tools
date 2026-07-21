@@ -1,6 +1,6 @@
 import { AvroSchemaInput, ParseSchemaResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, ownNamespace, resolveFullName, isPrimitiveName } from './avro_helpers';
+import { parseAndValidate, ownNamespace, resolveFullName, isPrimitiveName, normalizeTypeName } from './avro_helpers';
 
 /**
  * Parse an Avro .avsc JSON schema into a structured, normalized
@@ -23,7 +23,7 @@ export function parseSchema(ax: AxiomContext, input: AvroSchemaInput): ParseSche
 
   const { raw, type } = parsed;
   result.setValid(true);
-  result.setSchemaType(type.typeName);
+  result.setSchemaType(normalizeTypeName(type.typeName));
   result.setNormalizedJson(JSON.stringify(type.schema({ exportAttrs: true })));
 
   const isNamed = type.typeName === 'record' || type.typeName === 'enum' || type.typeName === 'fixed';

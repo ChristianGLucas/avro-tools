@@ -1,6 +1,6 @@
 import { AvroSchemaInput, UnionBranchesResult, UnionBranch } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, mkError, isPrimitiveName } from './avro_helpers';
+import { parseAndValidate, mkError, isPrimitiveName, ownNamespace, resolveFullName, normalizeTypeName } from './avro_helpers';
 
 /**
  * List the branches of an Avro union schema, in declaration order: each
@@ -21,7 +21,7 @@ export function listUnionBranches(ax: AxiomContext, input: AvroSchemaInput): Uni
   const { raw, type, registry } = parsed;
   if (type.typeName.indexOf('union') !== 0 || !Array.isArray(raw)) {
     result.setValid(false);
-    result.setErrorsList([mkError(`schema is not a union (top-level type is "${type.typeName}")`)]);
+    result.setErrorsList([mkError(`schema is not a union (top-level type is "${normalizeTypeName(type.typeName)}")`)]);
     return result;
   }
 
@@ -41,12 +41,14 @@ export function listUnionBranches(ax: AxiomContext, input: AvroSchemaInput): Uni
       const kind = typeof rec.type === 'string' ? rec.type : 'unknown';
       ub.setBranchType(kind);
       if ((kind === 'record' || kind === 'error' || kind === 'enum' || kind === 'fixed') && typeof rec.name === 'string') {
-        // Look up by unqualified name too, since registry keys are fully
-        // qualified: find the entry whose declared shape matches this branch.
-        const candidateFull = Object.keys(registry).find(
-          (k) => registry[k].typeName === (kind === 'error' ? 'record' : kind) && (k === rec.name || k.endsWith(`.${rec.name}`)),
-        );
-        ub.setFullName(candidateFull || (rec.name as string));
+        // Compute the branch's own full name directly (same namespace
+        // resolution used everywhere else in this package), rather than
+        // searching the registry by unqualified-name suffix: a suffix
+        // search picks whichever entry happens to be first, which is
+        // wrong whenever two branches share an unqualified name in
+        // different namespaces (e.g. union<billing.Address, shipping.Address>).
+        const topLevelNamespace = ''; // a union that is itself the top-level schema has no enclosing namespace
+        ub.setFullName(resolveFullName(rec.name, ownNamespace(rec, topLevelNamespace)));
       }
     } else {
       ub.setBranchType('unknown');

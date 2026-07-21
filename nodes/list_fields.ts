@@ -1,6 +1,6 @@
 import { AvroSchemaInput, ListFieldsResult, AvroField } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, mkError } from './avro_helpers';
+import { parseAndValidate, mkError, normalizeTypeName } from './avro_helpers';
 
 /**
  * List every field of a record schema, in declaration order: name, type
@@ -22,7 +22,7 @@ export function listFields(ax: AxiomContext, input: AvroSchemaInput): ListFields
   const { raw, type } = parsed;
   if (type.typeName !== 'record' || !raw || typeof raw !== 'object' || Array.isArray(raw)) {
     result.setValid(false);
-    result.setErrorsList([mkError(`schema is not a record (top-level type is "${type.typeName}")`)]);
+    result.setErrorsList([mkError(`schema is not a record (top-level type is "${normalizeTypeName(type.typeName)}")`)]);
     return result;
   }
   const rec = raw as Record<string, unknown>;

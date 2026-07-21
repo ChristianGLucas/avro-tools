@@ -28,6 +28,16 @@ export function isPrimitiveName(name: string): boolean {
   return PRIMITIVE_TYPES.has(name);
 }
 
+/** Normalizes avsc's internal `typeName` spelling (which distinguishes
+ * "union:wrapped" / "union:unwrapped" as an implementation detail of how
+ * avsc represents a resolved union value) down to the single "union" kind
+ * this package documents and exposes everywhere a schema kind is reported
+ * — including in error text, so a caller never sees avsc's internal
+ * spelling leak through. */
+export function normalizeTypeName(typeName: string): string {
+  return typeName.indexOf('union') === 0 ? 'union' : typeName;
+}
+
 export function mkError(message: string, path = ''): AvroError {
   const e = new AvroError();
   e.setMessage(message);
@@ -100,13 +110,18 @@ export function parseAndValidate(schemaText: string): { parsed?: ParsedSchema; e
 }
 
 /** Avro spec namespace resolution: a named type's own effective namespace
- * (also the namespace its children inherit if they declare none). */
+ * (also the namespace its children inherit if they declare none). Per the
+ * spec, a dotted (already fully-qualified) `name` takes priority over an
+ * explicit `namespace` attribute — the namespace attribute is ignored in
+ * that case, not merged with it (verified against avsc's own resolution:
+ * `{name:"a.b.Foo", namespace:"ignored.ns"}` resolves to full name
+ * "a.b.Foo", not something derived from "ignored.ns"). */
 export function ownNamespace(node: Record<string, unknown>, enclosingNamespace: string): string {
-  if (typeof node.namespace === 'string') return node.namespace;
   const name = node.name;
   if (typeof name === 'string' && name.indexOf('.') >= 0) {
     return name.slice(0, name.lastIndexOf('.'));
   }
+  if (typeof node.namespace === 'string') return node.namespace;
   return enclosingNamespace;
 }
 

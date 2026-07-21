@@ -32,6 +32,14 @@ describe('ParseSchema', () => {
     expect(result.getFullName()).toBe('');
   });
 
+  it('normalizes a union\'s schema_type to "union", not avsc\'s internal "union:wrapped"/"union:unwrapped" spelling (regression)', () => {
+    const input = new AvroSchemaInput();
+    input.setSchema(JSON.stringify(['null', 'string']));
+    const result = parseSchema(ctx, input);
+    expect(result.getValid()).toBe(true);
+    expect(result.getSchemaType()).toBe('union');
+  });
+
   it('returns a structured error instead of throwing on malformed JSON', () => {
     const input = new AvroSchemaInput();
     input.setSchema('{not json');

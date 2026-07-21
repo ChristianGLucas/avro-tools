@@ -26,9 +26,24 @@ describe('GetSchemaName', () => {
     expect(result.getFullName()).toBe('');
   });
 
-  it('resolves a fullname given directly with a dot, ignoring any namespace field', () => {
+  it('resolves a fullname given directly with a dot', () => {
     const input = new AvroSchemaInput();
     input.setSchema(JSON.stringify({ type: 'record', name: 'a.b.C', fields: [] }));
+    const result = getSchemaName(ctx, input);
+    expect(result.getFullName()).toBe('a.b.C');
+    expect(result.getNamespace()).toBe('a.b');
+    expect(result.getName()).toBe('C');
+  });
+
+  it('ignores an explicit namespace attribute when name is already dotted (regression)', () => {
+    // Found by adversarial review: an earlier version checked the explicit
+    // `namespace` attribute before the dotted-name case, so namespace and
+    // full_name came out inconsistent with each other. Per the Avro spec
+    // (confirmed against avsc's own resolution as the oracle), a dotted
+    // name is already fully qualified and the namespace attribute is
+    // ignored entirely, not merged with it.
+    const input = new AvroSchemaInput();
+    input.setSchema(JSON.stringify({ type: 'record', name: 'a.b.C', namespace: 'ignored.ns', fields: [] }));
     const result = getSchemaName(ctx, input);
     expect(result.getFullName()).toBe('a.b.C');
     expect(result.getNamespace()).toBe('a.b');
