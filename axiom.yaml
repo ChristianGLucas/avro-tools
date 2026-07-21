@@ -1,0 +1,164 @@
+name: christiangeorgelucas/avro-tools
+version: 0.1.0
+language: typescript
+description: >-
+  Deterministic parsing, inspection, canonicalization, and compatibility
+  analysis of Apache Avro schemas (.avsc JSON), wrapping avsc (mtth/avsc,
+  MIT, zero runtime dependencies) — a pure-JS Avro implementation. Every
+  node is a pure text-in/struct-out transform: the schema is always
+  supplied as plain JSON text by the caller, nothing is fetched from a
+  schema registry or the network, and there is no randomness or wall-clock
+  use. Covers structural parsing, well-formedness validation, type
+  detection, field/name/alias/doc/logical-type extraction, named-type and
+  union-branch enumeration, Avro spec Parsing Canonical Form + fingerprint
+  (CRC-64-AVRO/md5/sha256), writer/reader compatibility (schema evolution),
+  and optional JSON-datum <-> Avro-binary encode/decode.
+nodes:
+    - name: ParseSchema
+      input: AvroSchemaInput
+      output: ParseSchemaResult
+      description: >-
+        Parse an Avro .avsc JSON schema into a structured, normalized
+        representation: top-level type kind, name/namespace/full-name,
+        doc, aliases, and the full re-serialized structural form. A
+        malformed schema (bad JSON or a schema avsc rejects as invalid
+        Avro) returns valid=false with a structured error instead of
+        throwing.
+    - name: ValidateSchema
+      input: AvroSchemaInput
+      output: ValidateSchemaResult
+      description: >-
+        Check whether a .avsc JSON schema is a well-formed Avro schema per
+        the Avro specification, by constructing an avsc Type from it.
+        Returns valid=true, or valid=false with a structured error
+        describing what avsc rejected (unknown type, duplicate field name,
+        unresolvable named-type reference, malformed default, etc.).
+    - name: DetectSchemaType
+      input: AvroSchemaInput
+      output: SchemaTypeResult
+      description: >-
+        Detect the top-level kind of a valid Avro schema — record, enum,
+        array, map, union, fixed, or a primitive type name (null, boolean,
+        int, long, float, double, bytes, string) — plus is_named /
+        is_primitive / is_union convenience flags. A structured error if
+        the schema itself is malformed.
+    - name: ListFields
+      input: AvroSchemaInput
+      output: ListFieldsResult
+      description: >-
+        List every field of a record schema, in declaration order: name,
+        type (re-serialized as JSON), default value (if any), doc, aliases,
+        and sort order. A structured error if the schema is not a record
+        or is otherwise malformed.
+    - name: GetSchemaName
+      input: AvroSchemaInput
+      output: SchemaNameResult
+      description: >-
+        Extract the unqualified name, namespace, and fully-qualified name
+        ("namespace.name") of a named Avro schema (record, enum, or
+        fixed). is_named=false with empty name fields for unnamed schemas
+        (array, map, union, primitive). A structured error if the schema
+        is malformed.
+    - name: ListNamedTypes
+      input: AvroSchemaInput
+      output: ListNamedTypesResult
+      description: >-
+        List every named type (record, enum, fixed) declared anywhere in
+        a schema tree — including types nested inside record fields,
+        array items, map values, and union branches — deduplicated by
+        full name. A structured error if the schema is malformed.
+    - name: ListEnumSymbols
+      input: AvroSchemaInput
+      output: EnumSymbolsResult
+      description: >-
+        List the symbols of an Avro enum schema, in declaration order,
+        plus its optional Avro 1.9+ default symbol (used when resolving an
+        unrecognized symbol during schema evolution). A structured error
+        if the schema is not an enum or is malformed.
+    - name: ListUnionBranches
+      input: AvroSchemaInput
+      output: UnionBranchesResult
+      description: >-
+        List the branches of an Avro union schema, in declaration order:
+        each branch's re-serialized type JSON, its kind (record/enum/
+        array/map/fixed/primitive), and its full name when the branch is
+        a named type. A structured error if the schema is not a union or
+        is malformed.
+    - name: CanonicalForm
+      input: AvroSchemaInput
+      output: CanonicalFormResult
+      description: >-
+        Compute the Avro specification's Parsing Canonical Form (PCF) of a
+        schema — the normalized, whitespace-free, fully-qualified,
+        attribute-stripped string form the spec defines as the basis for
+        schema fingerprinting and canonical-equality checks. A structured
+        error if the schema is malformed.
+    - name: Fingerprint
+      input: FingerprintInput
+      output: FingerprintResult
+      description: >-
+        Compute a schema's fingerprint over its Parsing Canonical Form —
+        the identifier most Avro schema registries use as the schema ID.
+        Supports "crc64-avro" (the Avro spec's 64-bit Rabin fingerprint,
+        the default; implemented directly per the spec's published
+        algorithm and verified against the spec's own published test
+        vectors, since avsc does not implement it), "md5", and "sha256"
+        (both delegated to avsc, which computes them over the same PCF). A
+        structured error if the schema is malformed or the algorithm name
+        is unrecognized.
+    - name: CheckCompatibility
+      input: CompatibilityInput
+      output: CompatibilityResult
+      description: >-
+        Check Avro schema-evolution compatibility: can data written with
+        `writer_schema` be correctly read back using `reader_schema`? Uses
+        avsc's resolver (`readerType.createResolver(writerType)`), the
+        same resolution logic used to actually decode writer-encoded bytes
+        under a reader schema. Returns compatible=true, or compatible=
+        false with structured errors (a malformed writer/reader schema, or
+        a concrete incompatibility avsc's resolver rejected).
+    - name: ExtractDocs
+      input: AvroSchemaInput
+      output: ExtractDocsResult
+      description: >-
+        Collect every non-empty `doc` string found anywhere in a schema
+        tree — the schema root, every named type (record/enum/fixed), and
+        every record field — each tagged with its path in the tree. A
+        structured error if the schema is malformed.
+    - name: ListAliases
+      input: AvroSchemaInput
+      output: ListAliasesResult
+      description: >-
+        Collect every non-empty `aliases` declaration found anywhere in a
+        schema tree — named types and record fields can each declare
+        aliases for schema-evolution renames — each tagged with its path
+        in the tree. A structured error if the schema is malformed.
+    - name: DetectLogicalTypes
+      input: AvroSchemaInput
+      output: LogicalTypesResult
+      description: >-
+        Find every `logicalType` annotation anywhere in a schema tree
+        (decimal, date, time-millis/micros, timestamp-millis/micros, uuid,
+        duration, or any custom logical-type name), reporting its path,
+        underlying physical Avro type, and (for decimal) precision/scale.
+        Detects the annotation structurally regardless of whether avsc
+        recognizes it as one of its built-in logical types. A structured
+        error if the schema is malformed.
+    - name: EncodeToBinary
+      input: EncodeInput
+      output: EncodeResult
+      description: >-
+        Encode a JSON-represented datum to Avro binary using a caller-
+        supplied schema, via avsc's `toBuffer`. Input datum JSON and
+        output binary are both size-bounded well under the platform's
+        transport limit. A structured error if the schema is malformed or
+        the datum does not conform to it.
+    - name: DecodeFromBinary
+      input: DecodeInput
+      output: DecodeResult
+      description: >-
+        Decode Avro binary bytes back to a JSON-represented datum using a
+        caller-supplied schema, via avsc's `fromBuffer`. Input binary is
+        size-bounded well under the platform's transport limit. A
+        structured error if the schema is malformed or the bytes do not
+        decode cleanly under it (truncated buffer, trailing data, etc.).

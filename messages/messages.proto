@@ -1,0 +1,293 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.avro_tools;
+
+// A single structured schema error — never a crash. `path` is a JSON-ish
+// pointer into the schema text when the error can be localized (e.g. a
+// field name or nested type name); empty when it cannot.
+message AvroError {
+  string message = 1;
+  string path = 2;
+}
+
+// Canonical input for every node that inspects a single Avro schema: the
+// raw .avsc JSON text, always supplied as plain text by the caller. Never
+// fetched from a schema registry or the network.
+message AvroSchemaInput {
+  string schema = 1;
+}
+
+// Output of ParseSchema: a structured, normalized view of a schema's
+// top-level shape (name/namespace/doc/aliases/type), plus the full
+// re-serialized structural form. A malformed schema returns valid=false
+// with structured errors instead of throwing.
+message ParseSchemaResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  // record / enum / array / map / union / fixed, or a primitive type name
+  // (null/boolean/int/long/float/double/bytes/string).
+  string schema_type = 3;
+  // Unqualified name. Empty for unnamed types (array/map/union/primitive).
+  string name = 4;
+  // Empty when the type has no namespace (including all unnamed types).
+  string namespace = 5;
+  // "namespace.name", or just "name" when namespace is empty. Empty for
+  // unnamed types.
+  string full_name = 6;
+  string doc = 7;
+  repeated string aliases = 8;
+  // The schema re-serialized in avsc's normalized structural JSON form
+  // (attributes exported: doc/aliases/defaults included). Not the Parsing
+  // Canonical Form — see CanonicalForm for that.
+  string normalized_json = 9;
+}
+
+// Output of ValidateSchema: is this well-formed Avro schema, per the Avro
+// specification (checked by constructing an avsc Type)?
+message ValidateSchemaResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+}
+
+// Output of DetectSchemaType.
+message SchemaTypeResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  // record / enum / array / map / union / fixed, or a primitive type name.
+  string schema_type = 3;
+  bool is_named = 4;
+  bool is_primitive = 5;
+  bool is_union = 6;
+}
+
+// One field of a record schema.
+message AvroField {
+  string name = 1;
+  // The field's type, re-serialized as JSON (a bare string for a primitive
+  // type, e.g. "\"string\"", or a JSON object/array for complex types).
+  string type_json = 2;
+  bool has_default = 3;
+  // JSON-serialized default value; "" (with has_default=false) when the
+  // field declares no default.
+  string default_json = 4;
+  string doc = 5;
+  repeated string aliases = 6;
+  // "ascending", "descending", or "ignore". Empty when unset (defaults to
+  // "ascending" per the Avro spec, but this reports only what was declared).
+  string order = 7;
+}
+
+// Output of ListFields: every field of a record schema, in declaration
+// order. A structured error if the schema is not a record.
+message ListFieldsResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated AvroField fields = 3;
+}
+
+// Output of GetSchemaName.
+message SchemaNameResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  // False for unnamed types (array/map/union/primitive) — name/namespace/
+  // full_name are then all empty.
+  bool is_named = 3;
+  string name = 4;
+  string namespace = 5;
+  string full_name = 6;
+}
+
+// One named type (record/enum/fixed) found anywhere in a schema, including
+// nested inside records, arrays, maps, and unions.
+message NamedType {
+  string full_name = 1;
+  // "record", "enum", or "fixed".
+  string type = 2;
+  string namespace = 3;
+  string doc = 4;
+}
+
+// Output of ListNamedTypes: every named type declared anywhere in the
+// schema tree (deduplicated by full name — a name referenced more than
+// once, e.g. recursively, is listed once).
+message ListNamedTypesResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated NamedType types = 3;
+}
+
+// Output of ListEnumSymbols. A structured error if the schema is not an
+// enum.
+message EnumSymbolsResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated string symbols = 3;
+  bool has_default = 4;
+  // The enum's default symbol (Avro 1.9+ `default` attribute), used when
+  // resolving an unrecognized symbol during schema evolution. Empty when
+  // has_default is false.
+  string default_symbol = 5;
+}
+
+// One branch of a union schema.
+message UnionBranch {
+  // The branch's type, re-serialized as JSON.
+  string type_json = 1;
+  // record / enum / array / map / fixed, or a primitive type name.
+  string branch_type = 2;
+  // Full name for a named branch (record/enum/fixed); empty otherwise.
+  string full_name = 3;
+}
+
+// Output of ListUnionBranches, in declaration order. A structured error if
+// the schema is not a union.
+message UnionBranchesResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated UnionBranch branches = 3;
+}
+
+// Output of CanonicalForm: the Avro spec's Parsing Canonical Form (PCF) —
+// the normalized string used as the basis for schema fingerprinting.
+message CanonicalFormResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  string canonical_form = 3;
+}
+
+// Input for Fingerprint: a schema plus the hash algorithm to fingerprint
+// it with.
+message FingerprintInput {
+  string schema = 1;
+  // "crc64-avro" (the Avro spec's Rabin fingerprint — the identifier most
+  // schema registries use as the schema ID; this is the default when
+  // empty), "md5", or "sha256". Case-insensitive.
+  string algorithm = 2;
+}
+
+// Output of Fingerprint.
+message FingerprintResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  // The algorithm actually used (normalized), e.g. "crc64-avro".
+  string algorithm = 3;
+  // Lowercase hex digest of the fingerprint.
+  string fingerprint_hex = 4;
+  // The Parsing Canonical Form the fingerprint was computed over.
+  string canonical_form = 5;
+}
+
+// Input for CheckCompatibility: can data written with `writer_schema` be
+// read as `reader_schema`? The core Avro schema-evolution primitive.
+message CompatibilityInput {
+  string writer_schema = 1;
+  string reader_schema = 2;
+}
+
+// Output of CheckCompatibility.
+message CompatibilityResult {
+  bool compatible = 1;
+  // Populated when compatible=false: either the writer/reader schema was
+  // itself malformed, or avsc's resolver rejected the reader against the
+  // writer (field type mismatch, missing required field with no default,
+  // incompatible enum/union, etc.).
+  repeated AvroError errors = 2;
+}
+
+// One documentation string found in a schema, at some path within it.
+message DocEntry {
+  // "" for the schema root; "TypeName" for a nested named type; a JSON
+  // Pointer-style path (e.g. "/fields/0") for a field's doc.
+  string path = 1;
+  string doc = 2;
+}
+
+// Output of ExtractDocs: every non-empty `doc` attribute found anywhere in
+// the schema tree (schema root, named types, and record fields).
+message ExtractDocsResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated DocEntry docs = 3;
+}
+
+// One set of declared aliases found at some path within a schema.
+message AliasEntry {
+  string path = 1;
+  repeated string aliases = 2;
+}
+
+// Output of ListAliases: every non-empty `aliases` attribute found anywhere
+// in the schema tree (named types and record fields can each declare
+// aliases).
+message ListAliasesResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated AliasEntry entries = 3;
+}
+
+// One logical-type annotation found in a schema.
+message LogicalTypeEntry {
+  string path = 1;
+  // e.g. "decimal", "date", "time-millis", "time-micros",
+  // "timestamp-millis", "timestamp-micros", "uuid", "duration".
+  string logical_type = 2;
+  // The underlying Avro type the logical type annotates, e.g. "bytes",
+  // "int", "long", "fixed", "string".
+  string underlying_type = 3;
+  // decimal only; 0 otherwise.
+  int32 precision = 4;
+  // decimal only; 0 otherwise.
+  int32 scale = 5;
+}
+
+// Output of DetectLogicalTypes: every `logicalType` annotation found
+// anywhere in the schema tree, whether or not avsc recognizes it natively.
+message LogicalTypesResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  repeated LogicalTypeEntry logical_types = 3;
+}
+
+// Input for EncodeToBinary: a schema plus a JSON-encoded datum conforming
+// to it.
+message EncodeInput {
+  string schema = 1;
+  string datum_json = 2;
+}
+
+// Output of EncodeToBinary.
+message EncodeResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  bytes binary = 3;
+}
+
+// Input for DecodeFromBinary: a schema plus Avro binary-encoded bytes.
+message DecodeInput {
+  string schema = 1;
+  bytes binary = 2;
+}
+
+// Output of DecodeFromBinary: the decoded datum, re-serialized as JSON.
+message DecodeResult {
+  bool valid = 1;
+  repeated AvroError errors = 2;
+  string datum_json = 3;
+}

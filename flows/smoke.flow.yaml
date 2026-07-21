@@ -1,0 +1,14 @@
+name: avro-tools-smoke-flow
+description: Canonicalize a schema, then fingerprint the canonicalized text (idempotency check for the flow-composability gate).
+nodes:
+  - alias: canon
+    package: christiangeorgelucas/avro-tools@0.1.0
+    node: CanonicalForm
+  - alias: fp
+    package: christiangeorgelucas/avro-tools@0.1.0
+    node: Fingerprint
+edges:
+  - from: canon
+    to: fp
+    adapter:
+      "canonicalForm": schema
