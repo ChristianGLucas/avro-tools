@@ -1,6 +1,6 @@
 # avro-tools
 
-Composable [Axiom](https://axiom.co) nodes for deterministic parsing, inspection, canonicalization, and
+Composable [Axiom](https://axiomide.com) nodes for deterministic parsing, inspection, canonicalization, and
 compatibility analysis of Apache Avro schemas (`.avsc` JSON), wrapping
 [`avsc`](https://github.com/mtth/avsc) (mtth/avsc, MIT, zero runtime dependencies) — a pure-JS Avro
 implementation.
