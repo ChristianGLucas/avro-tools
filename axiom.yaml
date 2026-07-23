@@ -1,5 +1,5 @@
 name: christiangeorgelucas/avro-tools
-version: 0.1.0
+version: 0.1.1
 language: typescript
 description: >-
   Deterministic parsing, inspection, canonicalization, and compatibility
@@ -149,16 +149,13 @@ nodes:
       output: EncodeResult
       description: >-
         Encode a JSON-represented datum to Avro binary using a caller-
-        supplied schema, via avsc's `toBuffer`. Input datum JSON and
-        output binary are both size-bounded well under the platform's
-        transport limit. A structured error if the schema is malformed or
-        the datum does not conform to it.
+        supplied schema, via avsc's `toBuffer`. A structured error if the
+        schema is malformed or the datum does not conform to it.
     - name: DecodeFromBinary
       input: DecodeInput
       output: DecodeResult
       description: >-
         Decode Avro binary bytes back to a JSON-represented datum using a
-        caller-supplied schema, via avsc's `fromBuffer`. Input binary is
-        size-bounded well under the platform's transport limit. A
-        structured error if the schema is malformed or the bytes do not
-        decode cleanly under it (truncated buffer, trailing data, etc.).
+        caller-supplied schema, via avsc's `fromBuffer`. A structured
+        error if the schema is malformed or the bytes do not decode
+        cleanly under it (truncated buffer, trailing data, etc.).

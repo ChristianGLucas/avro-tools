@@ -6,9 +6,8 @@ import { parseAndValidate, ownNamespace, resolveFullName, isPrimitiveName, norma
  * Parse an Avro .avsc JSON schema into a structured, normalized
  * representation: top-level type kind, name/namespace/full-name, doc, and
  * aliases, plus the full re-serialized structural form. A malformed schema
- * (bad JSON, oversized/too-deeply-nested input, or a schema avsc rejects
- * as invalid Avro) returns valid=false with a structured error instead of
- * throwing.
+ * (bad JSON, or a schema avsc rejects as invalid Avro) returns valid=false
+ * with a structured error instead of throwing.
  *
  * @param ax - Platform context: ax.log for logging, ax.secrets for secrets.
  */

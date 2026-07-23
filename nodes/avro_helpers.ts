@@ -1,25 +1,6 @@
 import * as avro from 'avsc';
 import { AvroError, NamedType, DocEntry, AliasEntry, LogicalTypeEntry } from '../gen/messages_pb';
 
-// ---- Input-surface safety bounds (see the security lenses in the
-// axiom-package-authoring / axiom-marketplace-seeding skills: every
-// dimension the caller influences gets an explicit, tested upper bound
-// checked on the RAW input before we allocate, parse, or recurse). ----
-
-/** Raw .avsc schema text: bounded well below anything that would make
- * JSON.parse or avsc's own schema construction expensive. */
-export const MAX_SCHEMA_BYTES = 1_000_000; // 1 MB
-/** Recursion/nesting depth bound for both our own JSON walk and the
- * upfront depth pre-check — stops a maliciously deep schema from blowing
- * the stack before we ever touch it. */
-export const MAX_DEPTH = 64;
-/** JSON-encoded datum bound for EncodeToBinary. */
-export const MAX_DATUM_JSON_BYTES = 1_000_000; // 1 MB
-/** Avro-binary payload bound for both EncodeToBinary's output and
- * DecodeFromBinary's input — kept safely under Axiom's ~4 MiB node
- * transport cap. */
-export const MAX_BINARY_BYTES = 3 * 1024 * 1024; // 3 MiB
-
 const PRIMITIVE_TYPES = new Set([
   'null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string',
 ]);
@@ -45,24 +26,6 @@ export function mkError(message: string, path = ''): AvroError {
   return e;
 }
 
-/** Depth of an arbitrary JSON value (objects/arrays nest; scalars are 0). */
-function jsonDepth(node: unknown, depth = 0): number {
-  if (depth > MAX_DEPTH + 1) return depth; // already over — short-circuit
-  if (Array.isArray(node)) {
-    let max = depth;
-    for (const item of node) max = Math.max(max, jsonDepth(item, depth + 1));
-    return max;
-  }
-  if (node && typeof node === 'object') {
-    let max = depth;
-    for (const key of Object.keys(node as Record<string, unknown>)) {
-      max = Math.max(max, jsonDepth((node as Record<string, unknown>)[key], depth + 1));
-    }
-    return max;
-  }
-  return depth;
-}
-
 export interface ParsedSchema {
   /** The exact JSON structure the caller supplied (JSON.parse of their text). */
   raw: unknown;
@@ -78,26 +41,19 @@ export interface ParsedSchema {
 }
 
 /**
- * Parse and validate a caller-supplied .avsc schema string: bounds-check
- * it, parse the JSON, bound its nesting depth, then hand it to avsc to
- * confirm it is a well-formed Avro schema. Never throws — every failure
- * mode returns a structured AvroError instead.
+ * Parse and validate a caller-supplied .avsc schema string: parse the
+ * JSON, then hand it to avsc to confirm it is a well-formed Avro schema.
+ * Never throws — every failure mode returns a structured AvroError instead.
  */
 export function parseAndValidate(schemaText: string): { parsed?: ParsedSchema; error?: AvroError } {
   if (typeof schemaText !== 'string' || schemaText.length === 0) {
     return { error: mkError('schema must be a non-empty string') };
-  }
-  if (Buffer.byteLength(schemaText, 'utf8') > MAX_SCHEMA_BYTES) {
-    return { error: mkError(`schema exceeds the maximum allowed size of ${MAX_SCHEMA_BYTES} bytes`) };
   }
   let raw: unknown;
   try {
     raw = JSON.parse(schemaText);
   } catch (err) {
     return { error: mkError(`invalid JSON: ${(err as Error).message}`) };
-  }
-  if (jsonDepth(raw) > MAX_DEPTH) {
-    return { error: mkError(`schema nesting exceeds the maximum allowed depth of ${MAX_DEPTH}`) };
   }
   const registry: Record<string, avro.Type> = {};
   let type: avro.Type;
@@ -269,8 +225,8 @@ export function collectLogicalTypes(raw: unknown): LogicalTypeEntry[] {
 }
 
 /**
- * Generic bounded walk over a raw (already-validated) Avro schema JSON
- * tree. Calls `visit(node, namespaceAtThisNode, jsonPointerPath)` for every
+ * Generic walk over a raw (already-validated) Avro schema JSON tree. Calls
+ * `visit(node, namespaceAtThisNode, jsonPointerPath)` for every
  * schema-shaped node reached: the root, every array element (union
  * branch), and every named-type / array-items / map-values / field-type
  * position. Bare name-reference strings (a second use of an
@@ -285,7 +241,7 @@ function walk(
   visit: (node: unknown, namespace: string, path: string) => void,
   path = '',
 ): void {
-  if (depth > MAX_DEPTH || node == null) return;
+  if (node == null) return;
   if (Array.isArray(node)) {
     node.forEach((branch, i) => walk(branch, namespace, depth + 1, visit, `${path}/${i}`));
     return;

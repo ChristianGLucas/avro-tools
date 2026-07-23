@@ -7,7 +7,7 @@ import { parseAndValidate } from './avro_helpers';
  * Avro specification, by constructing an avsc Type from it. Returns
  * valid=true, or valid=false with a structured error describing what avsc
  * rejected (unknown type, duplicate field name, unresolvable named-type
- * reference, malformed default, oversized/too-deeply-nested input, etc.).
+ * reference, malformed default, etc.).
  *
  * @param ax - Platform context: ax.log for logging, ax.secrets for secrets.
  */

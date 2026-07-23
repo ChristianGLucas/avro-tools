@@ -1,6 +1,6 @@
 import { EncodeInput, EncodeResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, mkError, MAX_DATUM_JSON_BYTES, MAX_BINARY_BYTES } from './avro_helpers';
+import { parseAndValidate, mkError } from './avro_helpers';
 
 /**
  * Encode a JSON-represented datum to Avro binary using a caller-supplied
@@ -8,10 +8,8 @@ import { parseAndValidate, mkError, MAX_DATUM_JSON_BYTES, MAX_BINARY_BYTES } fro
  * Encoding (e.g. bytes/fixed values are a JSON string whose code points
  * 0-255 are the raw byte values — the same convention the `avro-tools`
  * CLI's `fromjson` uses, delegated here to avsc's `fromString`/`toBuffer`).
- * Input datum JSON and output binary are both size-bounded well under the
- * platform's transport limit. A structured error if the schema is
- * malformed, the datum JSON is malformed, or the datum does not conform to
- * the schema.
+ * A structured error if the schema is malformed, the datum JSON is
+ * malformed, or the datum does not conform to the schema.
  *
  * @param ax - Platform context: ax.log for logging, ax.secrets for secrets.
  */
@@ -30,12 +28,6 @@ export function encodeToBinary(ax: AxiomContext, input: EncodeInput): EncodeResu
     result.setErrorsList([mkError('datum_json must be a non-empty string')]);
     return result;
   }
-  if (Buffer.byteLength(datumJson, 'utf8') > MAX_DATUM_JSON_BYTES) {
-    result.setValid(false);
-    result.setErrorsList([mkError(`datum_json exceeds the maximum allowed size of ${MAX_DATUM_JSON_BYTES} bytes`)]);
-    return result;
-  }
-
   let binary: Buffer;
   try {
     const value = parsed.type.fromString(datumJson);
@@ -43,12 +35,6 @@ export function encodeToBinary(ax: AxiomContext, input: EncodeInput): EncodeResu
   } catch (err) {
     result.setValid(false);
     result.setErrorsList([mkError((err as Error).message || String(err))]);
-    return result;
-  }
-
-  if (binary.length > MAX_BINARY_BYTES) {
-    result.setValid(false);
-    result.setErrorsList([mkError(`encoded binary (${binary.length} bytes) exceeds the maximum allowed size of ${MAX_BINARY_BYTES} bytes`)]);
     return result;
   }
 

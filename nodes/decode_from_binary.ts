@@ -1,14 +1,13 @@
 import { DecodeInput, DecodeResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { parseAndValidate, mkError, MAX_BINARY_BYTES } from './avro_helpers';
+import { parseAndValidate, mkError } from './avro_helpers';
 
 /**
  * Decode Avro binary bytes back to a JSON-represented datum using a
  * caller-supplied schema. `datum_json` is produced in the Avro
  * specification's own JSON Datum Encoding (e.g. bytes/fixed values are a
  * JSON string whose code points 0-255 are the raw byte values — delegated
- * here to avsc's `fromBuffer`/`toString`). Input binary is size-bounded
- * well under the platform's transport limit. A structured error if the
+ * here to avsc's `fromBuffer`/`toString`). A structured error if the
  * schema is malformed or the bytes do not decode cleanly under it
  * (truncated buffer, trailing data, etc.).
  *
@@ -29,12 +28,6 @@ export function decodeFromBinary(ax: AxiomContext, input: DecodeInput): DecodeRe
     result.setErrorsList([mkError('binary must be non-empty')]);
     return result;
   }
-  if (binary.length > MAX_BINARY_BYTES) {
-    result.setValid(false);
-    result.setErrorsList([mkError(`binary (${binary.length} bytes) exceeds the maximum allowed size of ${MAX_BINARY_BYTES} bytes`)]);
-    return result;
-  }
-
   let datumJson: string;
   try {
     const value = parsed.type.fromBuffer(Buffer.from(binary));
